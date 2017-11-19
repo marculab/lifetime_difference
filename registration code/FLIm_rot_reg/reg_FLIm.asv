@@ -1,0 +1,17 @@
+function [ output_args ] = reg_FLIm( im1, im2 )
+%REG_FLIM Summary of this function goes here
+%   Detailed explanation goes here
+
+im1_uint8 = uint8( im1/max(im1(:))*255);
+im2_uint8 = uint8( im2/max(im2(:))*255);
+ 
+[optimizer, metric] = imregconfig('multimodal');
+movingRegistered = imregister(uint8(im1/max(im1(:))*255), uint8(im2/max(im2(:))*255), 'affine', optimizer, metric);
+
+for i=0:30
+    if isnan(sum(im1(:,end)))
+        i
+end
+
+end
+
