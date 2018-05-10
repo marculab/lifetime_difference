@@ -1,5 +1,7 @@
 % After the difference of all the cases are generated, run this script to
 % count the statistics of the difference for all the included cases
+    % Will load 'diffs_ch1.mat', 'diffs_ch2.mat', 'diffs_ch3.mat',
+    % 'diffs_ch4.mat'
 % The program will output 2 image files and 1 mat file
 % histogramdata.mat
     % channel 4 also included
@@ -8,6 +10,7 @@
 
 % get list of input files
 data_path = '../All Artery Data';
+disp(['root folder: ', data_path]);
 current_folders = dir(data_path);
 current_folders = current_folders([current_folders.isdir]);
 current_folders = current_folders(3:end);
@@ -32,6 +35,7 @@ for i = 1 : length(current_folders) % for each folder
         [filepath,name,ext] = fileparts(matfiles(j).name);
         fullpath = fullfile(matfiles(j).folder, matfiles(j).name);
         if strcmp(ext, '.mat') && strcmp(name, 'diffs_ch1')
+            disp(['Loading ', fullpath]);
             load(fullpath);
             diff_ch1 = imdiff(:);
             all_case_ch1 = cat(1, all_case_ch1, diff_ch1);
@@ -40,6 +44,7 @@ for i = 1 : length(current_folders) % for each folder
                 max_x = max(diff_ch1);
             end
         elseif strcmp(ext, '.mat') && strcmp(name, 'diffs_ch2')
+            disp(['Loading ', fullpath]);
             load(fullpath);
             diff_ch2 = imdiff(:);
             all_case_ch2 = cat(1, all_case_ch2, diff_ch2);
@@ -48,6 +53,7 @@ for i = 1 : length(current_folders) % for each folder
                 max_x = max(diff_ch1);
             end
         elseif strcmp(ext, '.mat') && strcmp(name, 'diffs_ch3')
+            disp(['Loading ', fullpath]);
             load(fullpath);
             diff_ch3 = imdiff(:);
             all_case_ch3 = cat(1, all_case_ch3, diff_ch3);
@@ -56,6 +62,7 @@ for i = 1 : length(current_folders) % for each folder
                 max_x = max(diff_ch1);
             end
         elseif strcmp(ext, '.mat') && strcmp(name, 'diffs_ch4')
+            disp(['Loading ', fullpath]);
             load(fullpath);
             diff_ch4 = imdiff(:);
             all_case_ch4 = cat(1, all_case_ch4, diff_ch4);
@@ -170,6 +177,7 @@ xlim([0 max_x])
 set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.04, 0.04, 0.9, 0.9]);
 
 % save histogram data as mat
+Disp('Save histogram_data to mat file');
 savepath = char(fullfile(data_path, 'histogramdata.mat'));
 histogram_data = {all_case_ch1, all_case_ch2, all_case_ch3, all_case_ch4};
 save(savepath, 'histogram_data');
