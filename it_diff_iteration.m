@@ -1,7 +1,9 @@
 % register the lifetime data of 2 runs
 % measure pixel wise difference of lifetime pairs and compute stats
 % save the difference figures and mat to file system
+    % will be saved to the same folder of the loaded mat file
 % saved mat files will be used by stats_figures_all.m
+    % diffs_ch1.mat, diffs_ch2.mat, diffs_ch3.mat, diffs_ch4.mat
 
 % add path of registration code
 addpath('registration code/FLIm_rot_reg');
@@ -28,7 +30,7 @@ case_id = {};
 
 show_figs = 1;
 mean_w = 3; % smoothing window size
-base_channel = 9; % use channel 2's image for registration
+base_channel = 10; % use channel 2's image for registration
 erode_radius = 0;
 close_radius = 3;
 channel_range = [13 14 15 16];
@@ -40,11 +42,9 @@ disp(['Mean smoothing window size: ', num2str(mean_w)])
 cp_flag = 0; % control point selection, set 1 to be used by cases when the registration code works bad
 cp_select = 1; % control point selection
 
-%noise_limit_min = 1;
-%noise_limit_max = 12;
 noise_limit_min = 0;
 noise_limit_max = 12;
-disp(['SNR range: [', num2str(noise_limit_min), ', ',num2str(noise_limit_max), ']'])
+disp(['value range: [', num2str(noise_limit_min), ', ',num2str(noise_limit_max), ']'])
 
 % go through each folder
 for folder_ind = 1 : length(current_folders) % for each folder
@@ -61,6 +61,7 @@ for folder_ind = 1 : length(current_folders) % for each folder
         w = strsplit(matfiles(j).name,'_');
         if strcmp(ext, '.mat') && size(w, 2) >= 5
             fullpath = fullfile(matfiles(j).folder, matfiles(j).name);
+            disp(['Loading ', fullpath]);
             load(fullpath); 
             % suppose variable name is AllData
             img_pair = [img_pair; AllData];
@@ -81,14 +82,14 @@ for folder_ind = 1 : length(current_folders) % for each folder
     rawrun_2 = cell2mat(img_pair(2));
     case_id = [case_id, cur_folder.name];
     
-    % use channel 2 to do registration
+    % use base channel to do registration
     im1 = cell2mat(img_pair(1));
     im1 = im1(:,:,base_channel);
     im2 = cell2mat(img_pair(2));
     im2 = im2(:,:,base_channel);
-    im1(im1 < 1) = 1;
+    im1(im1 < 0) = 0;
     im1(im1 > 12) = 12;
-    im2(im2 < 1) = 1;
+    im2(im2 < 0) = 0;
     im2(im2 > 12) = 12;
     tform = reg_FLIm(im2, im1);
     snr_1 = rawrun_1(:,:,base_channel - 4);
@@ -123,21 +124,16 @@ for folder_ind = 1 : length(current_folders) % for each folder
         snr_1 = rawrun_1(:,:,snr_range(i));
         snr_2 = rawrun_2(:,:,snr_range(i));
         
-        % dilate / erode
+        % noise mask
         noise_mask_1 = (run_1_orig < noise_limit_min) | (run_1_orig > noise_limit_max) | (snr_1 < 15);
         noise_mask_2 = (run_2_orig < noise_limit_min) | (run_2_orig > noise_limit_max) | (snr_2 < 15);
-        %se = strel('disk',erode_radius);
-        %noise_mask_1 = imdilate(noise_mask_1, se);
-        %noise_mask_2 = imdilate(noise_mask_2, se);
-        %noise_mask_1 = imerode(noise_mask_1, se);
-        %noise_mask_2 = imerode(noise_mask_2, se);
         
         % displaye noise mask
         %figure, imagesc(noise_mask_1);
         %figure, imagesc(noise_mask_2);
         
         % apply mask to image
-        run_1(noise_mask_1) = -1;
+        run_1(noise_mask_1) = -1; % make noise point -1 (will be NaN) for shift_ngregistration
         run_2(noise_mask_2) = -1;
         
         % register run2 to run_1
@@ -185,10 +181,6 @@ for folder_ind = 1 : length(current_folders) % for each folder
         
         % smooth using mean
         h = ones(mean_w, mean_w) / (mean_w * mean_w);
-        %run_1 = imfilter(run_1, h);
-        %run_2_res = imfilter(run_2_res, h);
-        %run_1(noise_filter) = 1;
-        %run_2_res(noise_filter) = 1;
         I1 = imfilter(run_1, h);
         I2 = imfilter(run_2_res, h);
         falsemask = (isnan(I1) - isnan(run_1));
@@ -202,7 +194,7 @@ for folder_ind = 1 : length(current_folders) % for each folder
         run_1(noise_filter) = NaN;
         run_2_res(noise_filter) = NaN;
 
-        % dilate / erode / close
+        % morphorlogy transformation: dilate / erode / close
         se = strel('disk', close_radius);
         closemask = imclose(noise_filter, se);
         SE = strel('rectangle', [close_radius,close_radius]);
