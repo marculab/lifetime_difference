@@ -8,6 +8,9 @@
 % add path of registration code
 addpath('registration code/FLIm_rot_reg');
 
+diff_out_path = './nonnanDiff';
+mkdir (diff_out_path);
+
 % get list of input files (suppose each pair of .mat file is in a seperate folder)
 data_path = '../All Artery Data';
 disp(['root folder: ', data_path]);
@@ -30,10 +33,10 @@ case_id = {};
 
 show_figs = 1;
 mean_w = 3; % smoothing window size
-base_channel = 10; % use channel 2's image for registration
+base_channel = 11; % use channel 2's image for registration
 erode_radius = 0;
 close_radius = 3;
-channel_range = [13 14 15 16];
+channel_range = [9 10 11 12];
 snr_range = [5 6 7 8];
 disp('Register using channel 2''data.');
 disp(['Morphology  transformation radius: ', num2str(close_radius)]);
@@ -44,14 +47,16 @@ cp_select = 1; % control point selection
 
 noise_limit_min = 0;
 noise_limit_max = 12;
-disp(['value range: [', num2str(noise_limit_min), ', ',num2str(noise_limit_max), ']'])
+disp(['SNR range: [', num2str(noise_limit_min), ', ',num2str(noise_limit_max), ']'])
 
 % go through each folder
 for folder_ind = 1 : length(current_folders) % for each folder
     cur_folder = current_folders(folder_ind);
     matfiles = dir(fullfile(data_path, cur_folder.name));
-    if ~strcmp(cur_folder.name, folder_to_process)
-        continue
+    if ~strcmp(all_folder_flag, 'y')
+        if ~strcmp(cur_folder.name, folder_to_process)
+            continue
+        end
     end
     matfiles = matfiles(~[matfiles.isdir]);
     img_pair = {};
@@ -75,6 +80,8 @@ for folder_ind = 1 : length(current_folders) % for each folder
     fprintf('%s\n', cur_folder.name);
     % variables for this image pair
     diffs = {}; % store difference value of each channel, as 1D array
+    nonnan_diffs = {[] [] [] []};
+    
     diff_imgs = {}; % store difference value of each channel, as image matrix
     outfile = fopen(fullfile(data_path, cur_folder.name, strcat('stats', '.csv')), 'wt');
     fprintf(outfile, [',', 'mean,', 'median,', 'std,', 'min,', 'max,\n']);
@@ -82,14 +89,14 @@ for folder_ind = 1 : length(current_folders) % for each folder
     rawrun_2 = cell2mat(img_pair(2));
     case_id = [case_id, cur_folder.name];
     
-    % use base channel to do registration
+    % use channel 2 to do registration
     im1 = cell2mat(img_pair(1));
     im1 = im1(:,:,base_channel);
     im2 = cell2mat(img_pair(2));
     im2 = im2(:,:,base_channel);
-    im1(im1 < 0) = 0;
+    im1(im1 < 1) = 1;
     im1(im1 > 12) = 12;
-    im2(im2 < 0) = 0;
+    im2(im2 < 1) = 1;
     im2(im2 > 12) = 12;
     tform = reg_FLIm(im2, im1);
     snr_1 = rawrun_1(:,:,base_channel - 4);
@@ -222,6 +229,7 @@ for folder_ind = 1 : length(current_folders) % for each folder
         %diff_img = imabsdiff(run_1, run_2_res);
         %diff_img(isnan(diff_img)) = 0;
         diff_img = imabsdiff(run_1_dilate, run_2_res_dilate);
+        nonnan_diff = diff_img(~isnan(diff_img));
         diff_img(isnan(diff_img)) = 0;
 
         % sum of difference
@@ -230,6 +238,8 @@ for folder_ind = 1 : length(current_folders) % for each folder
            
         % stats for this pair & channel
         diffs = [diffs, diff_img(:)];
+       
+        nonnan_diffs{i} = nonnan_diff(:);
         
         run_1_origs = [run_1_origs; run_1_orig];
         run_2_origs = [run_2_origs; run_2_orig];
@@ -249,6 +259,11 @@ for folder_ind = 1 : length(current_folders) % for each folder
         fprintf(outfile, 'CH%d, %f, %f, %f, %f, %f,\n', [ch cur_mean cur_med cur_std cur_min cur_max]');
         
     end
+    
+    nonnandiff_savepath = fullfile(data_path, cur_folder.name, [cur_folder.name, '_nonnan_diffs.mat']);
+    %save([diff_out_path, '/', cur_folder.name, '_nonnan_diffs.mat'], 'nonnan_diffs');
+    save(nonnandiff_savepath, 'nonnan_diffs');
+    
    % stats of this pair in all channel
     diffs_1d = [];
     for i = 1 : size(diffs, 2)
@@ -297,8 +312,7 @@ for folder_ind = 1 : length(current_folders) % for each folder
     for i = 1 : size(run_1_origs, 1)
         subplot(1,4,i);
         im = cell2mat(run_1_origs(i));
-        % limit = [0, max(im(:))];
-        limit = [0, noise_limit_max];
+        limit = [0, max(im(:))];
         imagesc(im);
         colormap(jet), caxis(limit), colorbar;
     end
@@ -312,8 +326,7 @@ for folder_ind = 1 : length(current_folders) % for each folder
     for i = 1 : size(run_2_origs, 1)
         subplot(1,4,i);
         im = cell2mat(run_2_origs(i));
-        % limit = [0, max(im(:))];
-        limit = [0, noise_limit_max];
+        limit = [0, max(im(:))];
         imagesc(im);
         colormap(jet), caxis(limit), colorbar;
     end
